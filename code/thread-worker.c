@@ -55,9 +55,15 @@ int worker_create(worker_t * thread, pthread_attr_t * attr, void *(*function)(vo
 	void *stack = malloc(STACK_SIZE);
 
 	// after everything is set, push this thread into run queue and
-	rq new_thread;
-	new_thread.thread = &thready;
-	ENQUEUE(&new_thread);
+	
+
+	#ifndef MLFQ
+	// Use PSJF priority queue
+	#else
+		rq new_thread;
+		new_thread.thread = &thready; 
+		ENQUEUE(&new_thread, );
+	#endif
 	
 	// - make it ready for the execution.
 	thready.status = READY;
@@ -221,9 +227,9 @@ void print_app_stats(void) {
 
 // Feel free to add any other functions you need
 
-void enqueue(rq *new_thread) {
+void enqueue(rq *new_thread, uint priority) {
 	if (runq == NULL) {
-		runq = &new_thread;
+		runq[priority] = &new_thread;
 		last = runq;
 	} else {
 		last->next = &new_thread;
@@ -231,9 +237,9 @@ void enqueue(rq *new_thread) {
 	}
 }
 
-rq* dequeue() {
-	rq *dequeued_thread = runq;
-	runq = runq->next;
+rq* dequeue(uint priority) {
+	rq *dequeued_thread = runq[priority];
+	runq[priority] = runq[priority]->next;
 	return dequeued_thread;
 }
 

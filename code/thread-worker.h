@@ -88,30 +88,28 @@ typedef struct runqueue {
 /* Function Declarations: */
 
 /* create a new thread */
-int worker_create(worker_t * thread, pthread_attr_t * attr, void
-    *(*function)(void*), void * arg);
+int worker_create(worker_t * thread, pthread_attr_t * attr, void*(*function)(void*), void * arg); // Sibo AND Rag
 
 /* give CPU pocession to other user level worker threads voluntarily */
-int worker_yield();
+int worker_yield(); // Rag
 
 /* terminate a thread */
-void worker_exit(void *value_ptr);
+void worker_exit(void *value_ptr); // Rag
 
 /* wait for thread termination */
-int worker_join(worker_t thread, void **value_ptr);
+int worker_join(worker_t thread, void **value_ptr); // Rag
 
 /* initial the mutex lock */
-int worker_mutex_init(worker_mutex_t *mutex, const pthread_mutexattr_t
-    *mutexattr);
+int worker_mutex_init(worker_mutex_t *mutex, const pthread_mutexattr_t *mutexattr); // Sibi
 
 /* aquire the mutex lock */
-int worker_mutex_lock(worker_mutex_t *mutex);
+int worker_mutex_lock(worker_mutex_t *mutex); // Sibi
 
 /* release the mutex lock */
-int worker_mutex_unlock(worker_mutex_t *mutex);
+int worker_mutex_unlock(worker_mutex_t *mutex); // Sibi
 
 /* destroy the mutex */
-int worker_mutex_destroy(worker_mutex_t *mutex);
+int worker_mutex_destroy(worker_mutex_t *mutex); // Sibi
 
 
 /* Function to print global statistics. Do not modify this function.*/
