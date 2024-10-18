@@ -1,6 +1,6 @@
 // File:	worker_t.h
 
-// List all group member's name:
+// List all group member's name: Rahulraj Rajesh (rr1185), Sibi Suriyanarayan Tiruchirapalli Venketaramani (st1005)
 // username of iLab:
 // iLab Server:
 
@@ -18,17 +18,38 @@
 #include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <ucontext.h>
+
+#define STACK_SIZE (50 * 1024)
 
 typedef uint worker_t;
+
+static worker_t next_thread_id = 0;
 
 typedef struct TCB {
 	/* add important states in a thread control block */
 	// thread Id
+	worker_t *id;
+
 	// thread status
+	uint status;
+
 	// thread context
-	// thread stack
+	ucontext_t context;
+
+	// thread stack --> taken care of by the context???
+
 	// thread priority
+	uint priority;
+
 	// And more ...
+
+	/*
+	
+	Needs time variables
+	
+	*/
+
 
 	// YOUR CODE HERE
 } tcb; 
@@ -40,9 +61,13 @@ typedef struct worker_mutex_t {
 	// YOUR CODE HERE
 } worker_mutex_t;
 
+/* Thread States */
+#define READY 0
+#define SCHEDULED 1
+#define BLOCKED 2
+
 /* Priority definitions */
 #define NUMPRIO 4
-
 #define HIGH_PRIO 3
 #define MEDIUM_PRIO 2
 #define DEFAULT_PRIO 1
@@ -51,7 +76,13 @@ typedef struct worker_mutex_t {
 /* define your data structures here: */
 // Feel free to add your own auxiliary data structures (linked list or queue etc...)
 
-// YOUR CODE HERE
+typedef struct runqueue {
+	tcb *thread;
+	struct runqueue *next;
+} rq;
+
+#define ENQUEUE(new_thread) enqueue(new_thread)
+#define DEQUEUE() dequeue()
 
 
 /* Function Declarations: */

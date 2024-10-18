@@ -1,9 +1,12 @@
+#define _XOPEN_SOURCE 700
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <ucontext.h>
+
 
 #define STACK_SIZE SIGSTKSZ
 

@@ -1,3 +1,4 @@
+#define _XOPEN_SOURCE 700
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
@@ -12,7 +13,7 @@ int main(){
 
 	// Use sigaction to register signal handler
 	struct sigaction sa;
-	memset (&sa, 0, sizeof (sa));
+	memset (&sa, 0, sizeof(sa));
 	sa.sa_handler = &ring;
 	sigaction (SIGPROF, &sa, NULL);
 

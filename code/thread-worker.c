@@ -1,6 +1,6 @@
 // File:	thread-worker.c
 
-// List all group member's name:
+// List all group member's name: Rahulraj Rajesh, Sibi Suriyanarayan Tiruchirapalli Venketaramani
 // username of iLab:
 // iLab Server:
 
@@ -14,23 +14,70 @@ double avg_resp_time=0;
 
 
 // INITAILIZE ALL YOUR OTHER VARIABLES HERE
-// YOUR CODE HERE
-
+rq *runq[NUMPRIO]; // might have to be a double pointer
+rq *last;
+tcb scheduler; // this somehow relates to the benchmark stuff
+static uint first_call = 1;
 
 /* create a new thread */
-int worker_create(worker_t * thread, pthread_attr_t * attr, 
-                      void *(*function)(void*), void * arg) {
+int worker_create(worker_t * thread, pthread_attr_t * attr, void *(*function)(void*), void * arg) {
 
-       // - create Thread Control Block (TCB)
-       // - create and initialize the context of this worker thread
-       // - allocate space of stack for this thread to run
-       // after everything is set, push this thread into run queue and 
-       // - make it ready for the execution.
+	/* How do you use worker_t */
+	if (first_call) {
+		if (getcontext(&scheduler) < 0) {
+			perror("getcontext");
+			return EXIT_FAILURE;
+		}
 
-       // YOUR CODE HERE
+		void *schedule_stack = malloc(STACK_SIZE);
+
+		// YOUR CODE HERE
+		scheduler.context.uc_link = NULL;
+		scheduler.context.uc_stack.ss_sp = schedule_stack;
+		scheduler.context.uc_stack.ss_size = STACK_SIZE;
+		scheduler.context.uc_stack.ss_flags = 0;
+
+		makecontext(&scheduler, schedule, 0);
+	}
+
+	// - create Thread Control Block (TCB) malloc it (once workerthread tcb is gonna disappear) --> malloc things that are permanent (almost connected TCB with thread)
+	tcb thready;
+	*thread = next_thread_id++;
+	thready.id = thread;
+
+	// - create and initialize the context of this worker thread
+	if (getcontext(&(thready.context)) < 0) {
+		perror("getcontext");
+		return EXIT_FAILURE;
+	}
+
+	// - allocate space of stack for this thread to run
+	void *stack = malloc(STACK_SIZE);
+
+	// after everything is set, push this thread into run queue and
+	rq new_thread;
+	new_thread.thread = &thready;
+	ENQUEUE(&new_thread);
+	
+	// - make it ready for the execution.
+	thready.status = READY;
+
+	// YOUR CODE HERE
+	thready.context.uc_link = NULL;
+	thready.context.uc_stack.ss_sp = stack;
+	thready.context.uc_stack.ss_size = STACK_SIZE;
+	thready.context.uc_stack.ss_flags = 0;
+
+	// setting the thread's context to the provided function --> needs arg somehow
+	makecontext(&(thready.context), function, 1, arg);
+
+	/*
+		Needs timer stuff
+		Arugment stuff
+	*/
 
 
-    return 0;
+    return EXIT_SUCCESS; // return whether it was successful or not
 };
 
 
@@ -53,6 +100,7 @@ int worker_setschedprio(worker_t thread, int prio) {
 int worker_yield() {
 	
 	// - change worker thread's state from Running to Ready
+
 	// - save context of this thread to its thread control block
 	// - switch from thread context to scheduler context
 
@@ -142,6 +190,8 @@ static void schedule() {
 
 }
 
+/* actual implementation of schedulers go here*/
+
 /* Pre-emptive Shortest Job First (POLICY_PSJF) scheduling algorithm */
 static void sched_psjf() {
 	// - your own implementation of PSJF
@@ -171,5 +221,19 @@ void print_app_stats(void) {
 
 // Feel free to add any other functions you need
 
-// YOUR CODE HERE
+void enqueue(rq *new_thread) {
+	if (runq == NULL) {
+		runq = &new_thread;
+		last = runq;
+	} else {
+		last->next = &new_thread;
+		last = last->next;
+	}
+}
+
+rq* dequeue() {
+	rq *dequeued_thread = runq;
+	runq = runq->next;
+	return dequeued_thread;
+}
 

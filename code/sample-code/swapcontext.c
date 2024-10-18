@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <ucontext.h>
 
+#define _XOPEN_SOURCE 700
 #define STACK_SIZE SIGSTKSZ
 
 void*  f1withparam(ucontext_t *nctx){
