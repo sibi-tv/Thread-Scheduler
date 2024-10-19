@@ -32,21 +32,21 @@ int worker_create(worker_t * thread, pthread_attr_t * attr, void *(*function)(vo
 		void *schedule_stack = malloc(STACK_SIZE);
 
 		// YOUR CODE HERE
-		scheduler.context.uc_link = NULL;
-		scheduler.context.uc_stack.ss_sp = schedule_stack;
-		scheduler.context.uc_stack.ss_size = STACK_SIZE;
-		scheduler.context.uc_stack.ss_flags = 0;
+		scheduler.context->uc_link = NULL;
+		scheduler.context->uc_stack.ss_sp = schedule_stack;
+		scheduler.context->uc_stack.ss_size = STACK_SIZE;
+		scheduler.context->uc_stack.ss_flags = 0;
 
 		makecontext(&scheduler, schedule, 0);
 	}
 
 	// - create Thread Control Block (TCB) malloc it (once workerthread tcb is gonna disappear) --> malloc things that are permanent (almost connected TCB with thread)
-	tcb thready;
+	tcb *thready = malloc(sizeof(tcb));
 	*thread = next_thread_id++;
-	thready.id = thread;
+	(*thready).id = thread;
 
 	// - create and initialize the context of this worker thread
-	if (getcontext(&(thready.context)) < 0) {
+	if (getcontext(&((*thready).context)) < 0) {
 		perror("getcontext");
 		return EXIT_FAILURE;
 	}
@@ -66,16 +66,16 @@ int worker_create(worker_t * thread, pthread_attr_t * attr, void *(*function)(vo
 	#endif
 	
 	// - make it ready for the execution.
-	thready.status = READY;
+	(*thready).status = READY;
 
 	// YOUR CODE HERE
-	thready.context.uc_link = NULL;
-	thready.context.uc_stack.ss_sp = stack;
-	thready.context.uc_stack.ss_size = STACK_SIZE;
-	thready.context.uc_stack.ss_flags = 0;
+	(*thready).context->uc_link = NULL;
+	(*thready).context->uc_stack.ss_sp = stack;
+	(*thready).context->uc_stack.ss_size = STACK_SIZE;
+	(*thready).context->uc_stack.ss_flags = 0;
 
 	// setting the thread's context to the provided function --> needs arg somehow
-	makecontext(&(thready.context), function, 1, arg);
+	makecontext((*thready).context, function, 1, arg);
 
 	/*
 		Needs timer stuff

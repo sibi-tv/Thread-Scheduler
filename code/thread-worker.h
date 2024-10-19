@@ -35,7 +35,7 @@ typedef struct TCB {
 	uint status;
 
 	// thread context
-	ucontext_t context;
+	ucontext_t *context;
 
 	// thread stack --> taken care of by the context???
 
