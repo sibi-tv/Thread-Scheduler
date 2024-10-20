@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <ucontext.h>
+#include <stdbool.h>
 
 #define STACK_SIZE (50 * 1024)
 
@@ -56,9 +57,7 @@ typedef struct TCB {
 
 /* mutex struct definition */
 typedef struct worker_mutex_t {
-	/* add something here */
-
-	// YOUR CODE HERE
+	uint *lock;
 } worker_mutex_t;
 
 /* Thread States */

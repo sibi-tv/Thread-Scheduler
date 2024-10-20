@@ -16,7 +16,8 @@ double avg_resp_time=0;
 // INITAILIZE ALL YOUR OTHER VARIABLES HERE
 rq *runq[NUMPRIO]; // might have to be a double pointer
 rq *last;
-tcb scheduler; // this somehow relates to the benchmark stuff
+tcb *scheduler; // this somehow relates to the benchmark stuff
+tcb *current_thread; // maybe?
 static uint first_call = 1;
 
 /* create a new thread */
@@ -24,6 +25,8 @@ int worker_create(worker_t * thread, pthread_attr_t * attr, void *(*function)(vo
 
 	/* How do you use worker_t */
 	if (first_call) {
+		scheduler = malloc(sizeof(tcb));
+		
 		if (getcontext(&scheduler) < 0) {
 			perror("getcontext");
 			return EXIT_FAILURE;
@@ -32,10 +35,10 @@ int worker_create(worker_t * thread, pthread_attr_t * attr, void *(*function)(vo
 		void *schedule_stack = malloc(STACK_SIZE);
 
 		// YOUR CODE HERE
-		scheduler.context->uc_link = NULL;
-		scheduler.context->uc_stack.ss_sp = schedule_stack;
-		scheduler.context->uc_stack.ss_size = STACK_SIZE;
-		scheduler.context->uc_stack.ss_flags = 0;
+		scheduler->context->uc_link = NULL;
+		scheduler->context->uc_stack.ss_sp = schedule_stack;
+		scheduler->context->uc_stack.ss_size = STACK_SIZE;
+		scheduler->context->uc_stack.ss_flags = 0;
 
 		makecontext(&scheduler, schedule, 0);
 	}
@@ -43,7 +46,7 @@ int worker_create(worker_t * thread, pthread_attr_t * attr, void *(*function)(vo
 	// - create Thread Control Block (TCB) malloc it (once workerthread tcb is gonna disappear) --> malloc things that are permanent (almost connected TCB with thread)
 	tcb *thready = malloc(sizeof(tcb));
 	*thread = next_thread_id++;
-	(*thready).id = thread;
+	thready->id = thread;
 
 	// - create and initialize the context of this worker thread
 	if (getcontext(&((*thready).context)) < 0) {
@@ -66,16 +69,16 @@ int worker_create(worker_t * thread, pthread_attr_t * attr, void *(*function)(vo
 	#endif
 	
 	// - make it ready for the execution.
-	(*thready).status = READY;
+	thready->status = READY;
 
 	// YOUR CODE HERE
-	(*thready).context->uc_link = NULL;
-	(*thready).context->uc_stack.ss_sp = stack;
-	(*thready).context->uc_stack.ss_size = STACK_SIZE;
-	(*thready).context->uc_stack.ss_flags = 0;
+	thready->context->uc_link = NULL;
+	thready->context->uc_stack.ss_sp = stack;
+	thready->context->uc_stack.ss_size = STACK_SIZE;
+	thready->context->uc_stack.ss_flags = 0;
 
 	// setting the thread's context to the provided function --> needs arg somehow
-	makecontext((*thready).context, function, 1, arg);
+	makecontext(thready->context, function, 1, arg);
 
 	/*
 		Needs timer stuff
@@ -134,9 +137,11 @@ int worker_join(worker_t thread, void **value_ptr) {
 };
 
 /* initialize the mutex lock */
-int worker_mutex_init(worker_mutex_t *mutex, 
-                          const pthread_mutexattr_t *mutexattr) {
+int worker_mutex_init(worker_mutex_t *mutex, const pthread_mutexattr_t *mutexattr) {
 	//- initialize data structures for this mutex
+	mutex = malloc(sizeof(worker_mutex_t));
+
+	// how do you get the thread info
 
 	// YOUR CODE HERE
 	return 0;
@@ -147,8 +152,12 @@ int worker_mutex_lock(worker_mutex_t *mutex) {
 
         // - use the built-in test-and-set atomic function to test the mutex
         // - if the mutex is acquired successfully, enter the critical section
+		ucontext_t cctx;
+		swapcontext(&cctx, current_thread->context);
         // - if acquiring mutex fails, push current thread into block list and
+		current_thread->status = BLOCKED;
         // context switch to the scheduler thread
+		setcontext(scheduler->context);
 
         // YOUR CODE HERE
         return 0;
@@ -168,13 +177,14 @@ int worker_mutex_unlock(worker_mutex_t *mutex) {
 /* destroy the mutex */
 int worker_mutex_destroy(worker_mutex_t *mutex) {
 	// - de-allocate dynamic memory created in worker_mutex_init
+	free(mutex);
 
 	return 0;
 };
 
 /* scheduler */
 static void schedule() {
-	// - every time a timer interrupt occurs, your worker thread library 
+	// - every time a timer interrupt occurs, your worker thread library mutex
 	// should be contexted switched from a thread context to this 
 	// schedule() function
 
