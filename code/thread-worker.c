@@ -41,6 +41,8 @@ int worker_create(worker_t * thread, pthread_attr_t * attr, void *(*function)(vo
 		scheduler->context->uc_stack.ss_flags = 0;
 
 		makecontext(&scheduler, schedule, 0);
+
+		first_call--;
 	}
 
 	// - create Thread Control Block (TCB) malloc it (once workerthread tcb is gonna disappear) --> malloc things that are permanent (almost connected TCB with thread)
@@ -109,11 +111,18 @@ int worker_setschedprio(worker_t thread, int prio) {
 int worker_yield() {
 	
 	// - change worker thread's state from Running to Ready
+	current_thread->status = READY;
 
 	// - save context of this thread to its thread control block
 	// - switch from thread context to scheduler context
-
+	if(swapcontext(current_thread->context, scheduler->context) < 0){
+		perror("set current thread context to scheduler context");
+		return EXIT_FAILURE;
+	}
 	// YOUR CODE HERE
+
+	//update # of context switches
+	tot_cntx_switches++;
 	
 	return 0;
 };
