@@ -139,7 +139,8 @@ int worker_join(worker_t thread, void **value_ptr) {
 	
 	// - wait for a specific thread to terminate
 	// - de-allocate any dynamic memory created by the joining thread
-  
+	
+	//Note: Until schedulers are created, I will leave this blank.
 	
 	return 0;
 };
