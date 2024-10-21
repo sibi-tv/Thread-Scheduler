@@ -26,6 +26,7 @@
 typedef uint worker_t;
 
 static worker_t next_thread_id = 0;
+static worker_t next_thread_id = 0;
 
 typedef struct TCB {
 	/* add important states in a thread control block */
@@ -45,6 +46,7 @@ typedef struct TCB {
 
 	// And more ...
 
+	worker_mutex_t *mutex_lock;
 	/*
 	
 	Needs time variables
@@ -57,8 +59,14 @@ typedef struct TCB {
 
 /* mutex struct definition */
 typedef struct worker_mutex_t {
+	uint *id;
 	uint *lock;
 } worker_mutex_t;
+
+typedef struct hashmap {
+	uint key;
+	rq *blocked_threads;
+} hashmap;
 
 /* Thread States */
 #define READY 0

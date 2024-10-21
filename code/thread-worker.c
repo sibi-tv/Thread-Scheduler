@@ -17,7 +17,7 @@ double avg_resp_time=0;
 rq *runq[NUMPRIO]; // might have to be a double pointer
 rq *last;
 tcb *scheduler; // this somehow relates to the benchmark stuff
-tcb *current_thread; // maybe?
+tcb *current_thread; // yes
 static uint first_call = 1;
 
 /* create a new thread */
@@ -150,14 +150,25 @@ int worker_mutex_init(worker_mutex_t *mutex, const pthread_mutexattr_t *mutexatt
 /* aquire the mutex lock */
 int worker_mutex_lock(worker_mutex_t *mutex) {
 
+		current_thread->mutex_lock = mutex;
+
         // - use the built-in test-and-set atomic function to test the mutex
+		// sync whatever
+		while (__sync_lock_test_and_set(mutex->lock, 1)) {
+			// yield
+			// use yield --> spin lock uses entire quantum. yield gives quantum back to scheduelr
+			current_thread->status = BLOCKED;
+			worker_yield();
+			/* Don't need this cuz worker_yield takes care of this
+			setcontext(scheduler->context); // might have to be a swap context instead
+			*/
+		}
         // - if the mutex is acquired successfully, enter the critical section
-		ucontext_t cctx;
-		swapcontext(&cctx, current_thread->context);
+		/* This is just automatically handled */
         // - if acquiring mutex fails, push current thread into block list and
-		current_thread->status = BLOCKED;
+		
         // context switch to the scheduler thread
-		setcontext(scheduler->context);
+		
 
         // YOUR CODE HERE
         return 0;
@@ -166,6 +177,7 @@ int worker_mutex_lock(worker_mutex_t *mutex) {
 /* release the mutex lock */
 int worker_mutex_unlock(worker_mutex_t *mutex) {
 	// - release mutex and make it available again. 
+	__sync_lock_release(mutex->lock);
 	// - put threads in block list to run queue 
 	// so that they could compete for mutex later.
 
