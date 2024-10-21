@@ -15,6 +15,7 @@ double avg_resp_time=0;
 
 // INITAILIZE ALL YOUR OTHER VARIABLES HERE
 rq *runq[NUMPRIO]; // might have to be a double pointer
+rq *thread_list;
 rq *last;
 tcb *scheduler; // this somehow relates to the benchmark stuff
 tcb *current_thread; // yes
@@ -25,7 +26,7 @@ int worker_create(worker_t * thread, pthread_attr_t * attr, void *(*function)(vo
 
 	/* How do you use worker_t */
 	if (first_call) {
-		scheduler = malloc(sizeof(tcb));
+		scheduler = (tcb*)malloc(sizeof(tcb));
 		
 		if (getcontext(&scheduler) < 0) {
 			perror("getcontext");
@@ -61,7 +62,6 @@ int worker_create(worker_t * thread, pthread_attr_t * attr, void *(*function)(vo
 
 	// after everything is set, push this thread into run queue and
 	
-
 	#ifndef MLFQ
 	// Use PSJF priority queue
 	#else
@@ -82,10 +82,7 @@ int worker_create(worker_t * thread, pthread_attr_t * attr, void *(*function)(vo
 	// setting the thread's context to the provided function --> needs arg somehow
 	makecontext(thready->context, function, 1, arg);
 
-	/*
-		Needs timer stuff
-		Arugment stuff
-	*/
+	one_dim_enqueue(thready);
 
 
     return EXIT_SUCCESS; // return whether it was successful or not
@@ -96,9 +93,12 @@ int worker_create(worker_t * thread, pthread_attr_t * attr, void *(*function)(vo
 /* This function gets called only for MLFQ scheduling set the worker priority. */
 int worker_setschedprio(worker_t thread, int prio) {
 
-
-   // Set the priority value to your thread's TCB
-   // YOUR CODE HERE
+	rq *ptr = thread_list;
+	while (ptr) {
+		if (*(ptr->thread->id) == thread) {
+			ptr->thread->priority = prio;
+		}
+	}
 
    return 0;	
 
@@ -148,7 +148,7 @@ int worker_join(worker_t thread, void **value_ptr) {
 /* initialize the mutex lock */
 int worker_mutex_init(worker_mutex_t *mutex, const pthread_mutexattr_t *mutexattr) {
 	//- initialize data structures for this mutex
-	mutex = malloc(sizeof(worker_mutex_t));
+	mutex = (worker_mutex_t*)malloc(sizeof(worker_mutex_t));
 
 	// how do you get the thread info
 
@@ -189,11 +189,15 @@ int worker_mutex_unlock(worker_mutex_t *mutex) {
 	__sync_lock_release(mutex->lock);
 	// - put threads in block list to run queue 
 	// so that they could compete for mutex later.
+#ifndef MLFQ
+	// Choose PSJF
+#else 
+	mlfq_unlock();
+#endif
 
 	// YOUR CODE HERE
 	return 0;
 };
-
 
 /* destroy the mutex */
 int worker_mutex_destroy(worker_mutex_t *mutex) {
@@ -222,7 +226,7 @@ static void schedule() {
 #ifndef MLFQ
 	// Choose PSJF
 #else 
-	// Choose MLFQ
+	sched_mlfq();
 #endif
 
 }
@@ -268,9 +272,36 @@ void enqueue(rq *new_thread, uint priority) {
 	}
 }
 
+void one_dim_enqueue(tcb* thread) {
+	rq *new_rq_node = (rq*)malloc(sizeof(rq));
+	if(thread_list == NULL) {
+		thread_list = new_rq_node;
+	} else {
+		last->next = new_rq_node;
+	}
+	last = new_rq_node;
+}
+
 rq* dequeue(uint priority) {
 	rq *dequeued_thread = runq[priority];
 	runq[priority] = runq[priority]->next;
 	return dequeued_thread;
+}
+
+void mlfq_unlock() {
+	uint desired_mutex_lock_id = *(current_thread->mutex_lock->id);
+	for (int i = 0; i < NUMPRIO; i++) {
+		rq *ptr = runq[i];
+		while(ptr) {
+			if (ptr->thread->status == BLOCKED && desired_mutex_lock_id == *(ptr->thread->mutex_lock->id)) { 
+				ptr->thread->status = READY;
+			}
+			ptr = ptr->next;
+		}
+	}
+}
+
+void psjf_unlock() {
+	// rag
 }
 
