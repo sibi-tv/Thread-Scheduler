@@ -27,26 +27,30 @@ typedef uint worker_t;
 
 static worker_t next_thread_id = 0;
 
+/* mutex struct definition */
+typedef struct worker_mutex_t {
+	uint id;
+	uint *lock;
+} worker_mutex_t;
+
 
 typedef struct TCB {
 	/* add important states in a thread control block */
 	// thread Id
-	worker_t *id;
+	worker_t id;
 
 	// thread status
 	uint status;
 
-	// thread context
-	ucontext_t *context;
-
-	// thread stack --> taken care of by the context???
-
 	// thread priority
 	uint priority;
 
-	// And more ...
+	// thread context
+	ucontext_t *context;
 
+	// And more ...
 	worker_mutex_t *mutex_lock;
+	
 	/*
 	
 	Needs time variables
@@ -56,12 +60,6 @@ typedef struct TCB {
 
 	// YOUR CODE HERE
 } tcb; 
-
-/* mutex struct definition */
-typedef struct worker_mutex_t {
-	uint *id;
-	uint *lock;
-} worker_mutex_t;
 
 // typedef struct hashmap {
 // 	uint key;
@@ -79,6 +77,12 @@ typedef struct worker_mutex_t {
 #define MEDIUM_PRIO 2
 #define DEFAULT_PRIO 1
 #define LOW_PRIO 0
+
+/* Blocked Reasons*/
+#define IO 3
+#define MUTEX 2
+#define JOIN 1
+#define NOT_BLOCKED 0
 
 /* define your data structures here: */
 // Feel free to add your own auxiliary data structures (linked list or queue etc...)
