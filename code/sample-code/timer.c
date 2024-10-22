@@ -11,6 +11,8 @@ void ring(int signum){
 
 int main(){
 
+	ucontext_t cctx, nctx;
+	set
 	// Use sigaction to register signal handler
 	struct sigaction sa;
 	memset (&sa, 0, sizeof(sa));

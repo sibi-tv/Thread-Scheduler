@@ -25,6 +25,10 @@ static uint mlfq_first_call = 1;
 
 // HELPER FUNCTIONS
 
+void alarm(int signum) {
+	printf("fuck off prick\n");
+} 
+
 void enqueue() {
 	if (runq[current_thread->priority]) {
 		rq *ptr = runq[current_thread->priority];
@@ -157,7 +161,10 @@ int worker_join(worker_t thread, void **value_ptr) {
 	/*
 	In this method, do we completely disregard the scheduler and wait for the entire thread to finish?
 	Cuz otherwise why do we deallocate memory HERE?
+	--> Nope apprently and I'm stupid confused
 	*/
+
+	//needs to call worker exit
 	
 	//Note: Until schedulers are created, I will leave this blank.
 	
@@ -284,6 +291,9 @@ void print_app_stats(void) {
 /* create a new thread */
 int worker_create(worker_t * thread, pthread_attr_t * attr, void *(*function)(void*), void * arg) {
 	if (first_call) {
+
+		/* benchmark thread */
+
 		scheduler = (tcb*)malloc(sizeof(tcb));
 
 		scheduler->context = (ucontext_t*)malloc(sizeof(ucontext_t));
