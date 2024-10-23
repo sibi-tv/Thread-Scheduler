@@ -25,9 +25,9 @@ static uint mlfq_first_call = 1;
 
 // HELPER FUNCTIONS
 
-void alarm(int signum) {
-	printf("fuck off prick\n");
-} 
+// void alarm(int signum) {
+// 	printf("fuck off prick\n");
+// } 
 
 void enqueue() {
 	if (runq[current_thread->priority]) {
@@ -157,6 +157,11 @@ int worker_join(worker_t thread, void **value_ptr) {
 	
 	// - wait for a specific thread to terminate
 	// - de-allocate any dynamic memory created by the joining thread
+
+	/* value.ptr is the return value of thread --> so just get the return value and save it */
+	/* *value_ptr = return_value */
+
+	/* how do we know a thread is finished? */
 
 	/*
 	In this method, do we completely disregard the scheduler and wait for the entire thread to finish?

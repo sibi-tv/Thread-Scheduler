@@ -5,6 +5,7 @@
 #include <signal.h>
 #include <sys/time.h>
 #include <string.h>
+#include <ucontext.h>
 #include <pthread.h>
 //#include "../thread-worker.h"
 
@@ -29,27 +30,48 @@ void *bar() {
 	printf("bar\n");
 }
 
-void alarm(int signum) {
-	printf("ur a bitch\n");
+struct itimerval timer;
+ucontext_t cctx, nctx;
+
+
+void alarm_handler(int signum) {
+	printf("Switch to bar\n");
+    //printf("%ld\n", timer.it_interval.tv_sec);
+    swapcontext(&cctx, &nctx);
 }
+
+
 
 int main(int argc, char **argv) {
 
     struct sigaction sa;
 	memset (&sa, 0, sizeof(sa));
-
-    // Configure the sigaction struct
-    sa.sa_handler = alarm;      // Set the handler function
-    sigaction(SIGPROF, &sa, NULL);           // No signals are blocked during execution
-    sa.sa_flags = 0;                    // Use default flags (no special behavior)
-
-	struct itimerval timer;
+    sa.sa_handler = &alarm_handler;      // Set the handler function
 
     // Set timer for 2 seconds with 1-second interval
-    timer.it_value.tv_sec = 2;          // Initial expiration: 2 seconds
-    timer.it_value.tv_usec = 0;
+    timer.it_value.tv_sec = 0;          // Initial expiration: 2 seconds
+    timer.it_value.tv_usec = 1;
     timer.it_interval.tv_sec = 1;       // Periodic expiration: 1 second
     timer.it_interval.tv_usec = 0;
+
+    setitimer(ITIMER_PROF, &timer, NULL);
+
+    getcontext(&cctx);
+    cctx.uc_stack.ss_sp = malloc(8192);
+    cctx.uc_stack.ss_size = 8192;
+    makecontext(&cctx, (void (*)())foo, 0);
+
+    getcontext(&nctx);
+    nctx.uc_stack.ss_sp = malloc(8192);
+    nctx.uc_stack.ss_size = 8192;
+    makecontext(&nctx, (void (*)())bar, 0);
+
+    sigaction(SIGPROF, &sa, NULL);           // No signals are blocked during execution
+    //sa.sa_flags = 0;                    // Use default flags (no special behavior)
+
+    setcontext(&cctx);
+
+    return 0;
 
 	
 }
