@@ -26,6 +26,7 @@ rq *thread_list_last; // Holds the ptr of the final node in thread_list
 tcb *scheduler; // this somehow relates to the benchmark stuff
 rq *current_thread; // yes
 tcb *benchmark_thread;
+static ucontext_t *thread_ender;
 static uint first_call = 1;
 static uint mlfq_first_call = 1;
 //static int benchmark_unenqueued = 1;
@@ -39,7 +40,7 @@ struct itimerval timer;
 // } 
 
 void ring(){
-	printf("um");
+	setitimer(ITIMER_PROF, NULL, NULL);
 	swapcontext(current_thread->thread->context, scheduler->context);
 }
 
@@ -70,6 +71,7 @@ void one_dim_enqueue(tcb* thread) {
 		thread_list_last->next = new_rq_node;
 	}
 	thread_list_last = new_rq_node;
+	thread_list_last->thread = thread;
 }
 
 rq* dequeue(uint priority) {
@@ -80,8 +82,28 @@ rq* dequeue(uint priority) {
 	return dequeued_rq;
 }
 
-rq* peek(uint priority) {
+rq* find_thread(worker_t thread) {
+	rq *ptr = thread_list;
+	printf("%u\n", thread);
+	printf("%d\n", ptr->thread->id);
+	while(ptr != NULL && ptr->thread->id != thread) {
+		ptr = ptr->next;
+	}
+	return ptr;
+}
 
+rq* block_thread(rq* blocking_thread, rq* violated_thread) {
+	if (blocking_thread->thread->threads_blocked) {
+		bt *ptr = blocking_thread->thread->threads_blocked;
+		while(ptr->next) {
+			ptr = ptr->next;
+		}
+		ptr = (bt*)malloc(sizeof(bt));
+		ptr->id = violated_thread->thread->id;
+	} else {
+		blocking_thread->thread->threads_blocked = (bt*)malloc(sizeof(bt));
+		blocking_thread->thread->threads_blocked->id = violated_thread->thread->id;
+	}
 }
 
 void mlfq_unlock() {
@@ -122,12 +144,15 @@ int worker_setschedprio(worker_t thread, int prio) {
 
 /* give CPU possession to other user-level worker threads voluntarily */
 int worker_yield() {
-	
+	printf("%u %u\n", current_thread->thread->id, current_thread->thread->status);
 	// - change worker thread's state from Running to Ready
-	current_thread->thread->status = READY;
-
+	if (current_thread->thread->status == SCHEDULED) {
+		current_thread->thread->status = READY;
+	}
 	// - save context of this thread to its thread control block
 	// - switch from thread context to scheduler context
+
+
 	if(swapcontext(current_thread->thread->context, scheduler->context) < 0){
 		perror("set current thread context to scheduler context");
 		return EXIT_FAILURE;
@@ -140,12 +165,29 @@ int worker_yield() {
 	return 0;
 };
 
+void worker_exit_wrapper() {
+	worker_exit(NULL); //wrong lowkey
+}
+
 /* terminate a thread */
 void worker_exit(void *value_ptr) {
 	// - de-allocate any dynamic memory created when starting this thread
-	
+	setitimer(ITIMER_PROF, NULL, NULL);
+	printf("ode\n");
+	current_thread->thread->status = EXITED;
+	while(current_thread->thread->threads_blocked) {
+		bt *ptr = current_thread->thread->threads_blocked;
+		current_thread->thread->threads_blocked = current_thread->thread->threads_blocked->next;
+		rq *unblocked_thread = find_thread(ptr->id);
+		unblocked_thread->thread->num_threads_blocking--;
+		if (unblocked_thread->thread->num_threads_blocking == 0) {
+			unblocked_thread->thread->status = READY;
+		}
+		free(ptr);
+	}
+	printf("ode again\n");
 	uint tid = current_thread->thread->id;
-
+	printf("ode again\n");
 	// Acquiring and rewiring the thread_list linked list to exclude the current thread being exited
 	rq *ptr = thread_list, *ptr2 = NULL;
 	if(ptr->thread->id == tid) {
@@ -169,12 +211,12 @@ void worker_exit(void *value_ptr) {
 	// deallocation for MLFQ?
 	
 	// de-allocating dynamically allocated things
-	free(current_thread->thread->context->uc_stack.ss_sp);
-	//needs to free more things
-	free(current_thread);
-	free(ptr);
+	// free(current_thread->thread->context->uc_stack.ss_sp);
+	// //needs to free more things
+	// free(current_thread);
+	// free(ptr);
+	worker_yield();                                                                                                                                                                                                                                                                        
 };
-
 
 /* Wait for thread termination */
 int worker_join(worker_t thread, void **value_ptr) {
@@ -196,11 +238,25 @@ int worker_join(worker_t thread, void **value_ptr) {
 	//needs to call worker exit
 	
 	//Note: Until schedulers are created, I will leave this blank.
+	printf("hello\n");
 	
-	setitimer(ITIMER_PROF, NULL, NULL);	
+	setitimer(ITIMER_PROF, NULL, NULL);
+	// rq* ptr = thread_list;
+	// while (ptr->thread->id != thread) {
+	// 	ptr = ptr->next;
+	// }
 
+	// if (ptr->thread->blocked_ids == NULL) {
+	// 	ptr->thread->blocked_ids = (worker_mutex_t*)malloc(sizeof(worker_t));
+	// }
+	printf("fei\n");
+	rq* blocking_thread = find_thread(thread);
+	printf("fein\n");
+	block_thread(blocking_thread, current_thread);
 	current_thread->thread->status = BLOCKED;
-	ring();
+	current_thread->thread->num_threads_blocking++;
+	printf("Before worker yield: %u %u\n", current_thread->thread->id, current_thread->thread->status);
+	worker_yield();
 	
 	return 0;
 };
@@ -300,10 +356,9 @@ static void roundy(){
 	
 	printf("cock mcgee\n");
 	rq* ptr = dequeue(HIGH_PRIO);
-	printf("%d\n", ptr->thread->id);
-	printf("%d\n", ptr->thread->status);
+	// current_thread->thread->status = READY;
 
-	current_thread->thread->status = READY;
+	printf("old context id: %d\n", current_thread->thread->id);
 
 	// if (mlfq_first_call) {
 	// 	current_thread = ptr;
@@ -313,9 +368,12 @@ static void roundy(){
 	enqueue(current_thread);
 	//printf("%d\n", current_thread->thread->id);
 	//assuming at least one thread is not BLOCKED
-	while(ptr->thread->status == BLOCKED) {
+	printf("%u %u\n", current_thread->thread->id, current_thread->thread->status);
+	while(ptr->thread->status == BLOCKED || ptr->thread->status == EXITED) {
+		printf("meek mook\n");
 		rq* prev = ptr;
 		ptr = dequeue(HIGH_PRIO);
+		prev->next = NULL;
 		enqueue(prev);
 	}
 
@@ -323,6 +381,9 @@ static void roundy(){
 	current_thread = ptr;
 
 	current_thread->thread->status = SCHEDULED;
+	if (old->thread->status == SCHEDULED) {
+		old->thread->status = READY;
+	}
 
 	// current_thread = ptr;
 	// current_thread->thread->status = SCHEDULED;
@@ -330,8 +391,8 @@ static void roundy(){
 
 	printf("ok...\n");
 	setitimer(ITIMER_PROF, &timer, NULL);
-	printf("%d\n", current_thread->thread->context->uc_stack.ss_size);
-	printf("%d\n", swapcontext(old->thread->context, current_thread->thread->context));
+	printf("new context id: %d\n", current_thread->thread->id);
+	setcontext(current_thread->thread->context);
 	
 }
 
@@ -349,8 +410,6 @@ static void schedule() {
 	// 		sched_mlfq();
 
 	// YOUR CODE HERE
-	setitimer(ITIMER_PROF, NULL, NULL);
-
 	
 
 	// - schedule policy
@@ -381,18 +440,10 @@ int worker_create(worker_t * thread, pthread_attr_t * attr, void *(*function)(vo
 	setitimer(ITIMER_PROF, NULL, NULL);
 	
 	if (first_call) {
-
-		void *benchmark_stack = malloc(STACK_SIZE);
-
 		/* benchmark thread */
 		benchmark_thread = (tcb*) malloc(sizeof(tcb));
+		
 		benchmark_thread->context = (ucontext_t*)malloc(sizeof(ucontext_t));
-		benchmark_thread->priority = HIGH_PRIO;
-		benchmark_thread->id = next_thread_id++;
-
-		benchmark_thread->context->uc_stack.ss_sp = benchmark_stack;
-		benchmark_thread->context->uc_stack.ss_size = STACK_SIZE;
-
 
 		if (getcontext(benchmark_thread->context) < 0) {
 			perror("getcontext");
@@ -400,8 +451,12 @@ int worker_create(worker_t * thread, pthread_attr_t * attr, void *(*function)(vo
 			free(benchmark_thread);
 			return EXIT_FAILURE;
 		}
+		benchmark_thread->priority = HIGH_PRIO;
+		benchmark_thread->id = next_thread_id++;
 
-		
+		benchmark_thread->num_threads_blocking = 0;
+
+		one_dim_enqueue(benchmark_thread);
 
 		rq *arr_cue = (rq*)malloc(sizeof(rq));
 		arr_cue->thread = benchmark_thread;
@@ -410,6 +465,22 @@ int worker_create(worker_t * thread, pthread_attr_t * attr, void *(*function)(vo
 		// enqueue(arr_cue);
 
 		current_thread = arr_cue;
+
+		thread_ender =  (ucontext_t*)malloc(sizeof(ucontext_t));
+		if (getcontext(thread_ender) < 0) {
+			perror("getcontext");
+			free(thread_ender);
+			return EXIT_FAILURE;
+		}
+
+		void *thread_ender_stack = malloc(STACK_SIZE); 
+
+		thread_ender->uc_link = NULL; //current_thread->thread->context;
+		thread_ender->uc_stack.ss_sp = thread_ender_stack;
+		thread_ender->uc_stack.ss_size = STACK_SIZE;
+		thread_ender->uc_stack.ss_flags = 0;
+
+		makecontext(thread_ender, worker_exit_wrapper, 0);
 		
 		scheduler = (tcb*)malloc(sizeof(tcb));
 
@@ -442,7 +513,7 @@ int worker_create(worker_t * thread, pthread_attr_t * attr, void *(*function)(vo
 		sa.sa_handler = &ring; //worker_yield is called after 10 mm
 		sigaction(SIGPROF, &sa, NULL);
 
-		timer.it_value.tv_usec = 50000;
+		timer.it_value.tv_usec = 10000;
 		timer.it_value.tv_sec = 0;
 		timer.it_interval.tv_usec = 0;
 		timer.it_interval.tv_sec = 0;
@@ -473,7 +544,7 @@ int worker_create(worker_t * thread, pthread_attr_t * attr, void *(*function)(vo
 	new_thread->status = READY;
 
 	// YOUR CODE HERE
-	new_thread->context->uc_link = current_thread->thread->context;
+	new_thread->context->uc_link = thread_ender; //current_thread->thread->context;
 	new_thread->context->uc_stack.ss_sp = stack;
 	new_thread->context->uc_stack.ss_size = STACK_SIZE;
 	new_thread->context->uc_stack.ss_flags = 0;

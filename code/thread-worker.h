@@ -23,7 +23,7 @@
 #include <ucontext.h>
 #include <stdbool.h>
 
-#define STACK_SIZE (50 * 1024)
+#define STACK_SIZE (100 * 1024)
 
 //added here cause error
 typedef unsigned int uint;
@@ -38,6 +38,10 @@ typedef struct worker_mutex_t {
 	uint *lock;
 } worker_mutex_t;
 
+typedef struct blocked_threads {
+	worker_t id;
+	struct blocked_threads *next;
+} bt;
 
 typedef struct TCB {
 	/* add important states in a thread control block */
@@ -55,6 +59,10 @@ typedef struct TCB {
 
 	// And more ...
 	worker_mutex_t *mutex_lock;
+
+	bt *threads_blocked;
+
+	int num_threads_blocking;
 	
 	/*
 	
@@ -66,15 +74,11 @@ typedef struct TCB {
 	// YOUR CODE HERE
 } tcb; 
 
-// typedef struct hashmap {
-// 	uint key;
-// 	rq *blocked_threads;
-// } hashmap;
-
 /* Thread States */
 #define READY 0
 #define SCHEDULED 1
 #define BLOCKED 2
+#define EXITED 3
 
 /* Priority definitions */
 #define NUMPRIO 4
