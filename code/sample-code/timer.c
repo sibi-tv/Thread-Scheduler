@@ -21,7 +21,7 @@ int main(){
 	struct itimerval timer;
 
 	// Set up what the timer should reset to after the timer goes off
-	timer.it_interval.tv_usec = 0; 
+	timer.it_interval.tv_usec = 0;
 	timer.it_interval.tv_sec = 0;
 
 	// Set up the current timer to go off in 1 second

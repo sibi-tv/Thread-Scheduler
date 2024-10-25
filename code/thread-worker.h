@@ -25,6 +25,9 @@
 
 #define STACK_SIZE (50 * 1024)
 
+//added here cause error
+typedef unsigned int uint;
+
 typedef uint worker_t;
 
 static worker_t next_thread_id = 0;
