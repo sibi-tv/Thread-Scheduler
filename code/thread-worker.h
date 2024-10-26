@@ -87,12 +87,6 @@ typedef struct TCB {
 #define DEFAULT_PRIO 1
 #define LOW_PRIO 0
 
-/* Blocked Reasons*/
-#define IO 3
-#define MUTEX 2
-#define JOIN 1
-#define NOT_BLOCKED 0
-
 /* define your data structures here: */
 // Feel free to add your own auxiliary data structures (linked list or queue etc...)
 
