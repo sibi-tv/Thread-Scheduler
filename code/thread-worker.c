@@ -21,10 +21,11 @@ double avg_resp_time=0;
 // INITAILIZE ALL YOUR OTHER VARIABLES HERE
 
 rq *runq[NUMPRIO]; // The runqueue for MLFQ
-rq *thread_list; // A list of threads created for simple searching
-rq *thread_list_last; // Holds the ptr of the final node in thread_list
+static rq *thread_list; // A list of threads created for simple searching
+//rq *thread_list_last; // Holds the ptr of the final node in thread_list
 tcb *scheduler; // this somehow relates to the benchmark stuff
 rq *current_thread; // yes
+rq *found_thread;
 tcb *benchmark_thread;
 static ucontext_t *thread_ender;
 static uint first_call = 1;
@@ -65,13 +66,29 @@ void enqueue(rq *runny) {
 
 void one_dim_enqueue(tcb* thread) {
 	rq *new_rq_node = (rq*)malloc(sizeof(rq));
+	new_rq_node->thread = (tcb*)malloc(sizeof(tcb));
+	thread;
+	new_rq_node->next = NULL;
+	
 	if(thread_list == NULL) {
+		printf("first time\n");
 		thread_list = new_rq_node;
+		thread_list->next = NULL;
 	} else {
-		thread_list_last->next = new_rq_node;
+		printf("second time\n");
+		rq *ptr = thread_list;
+		while(ptr->next != NULL) {
+			ptr = ptr->next;
+		}
+		ptr->next = new_rq_node;
+		ptr->next->thread = thread;
+		// thread_list_last->next = new_rq_node;
+		// thread_list_last = thread_list_last->next;
+		// printf("%u\n", thread_list->next->thread->id);
+		printf("%u\n", thread_list->next->thread->id);
 	}
-	thread_list_last = new_rq_node;
-	thread_list_last->thread = thread;
+	
+	//thread_list_last->thread = thread;
 }
 
 rq* dequeue(uint priority) {
@@ -82,28 +99,45 @@ rq* dequeue(uint priority) {
 	return dequeued_rq;
 }
 
-rq* find_thread(worker_t thread) {
-	rq *ptr = thread_list;
-	printf("%u\n", thread);
-	printf("%d\n", ptr->thread->id);
-	while(ptr != NULL && ptr->thread->id != thread) {
-		ptr = ptr->next;
-	}
-	return ptr;
-}
-
-rq* block_thread(rq* blocking_thread, rq* violated_thread) {
-	if (blocking_thread->thread->threads_blocked) {
-		bt *ptr = blocking_thread->thread->threads_blocked;
-		while(ptr->next) {
+void find_thread(worker_t th) {
+	rq* ptr;
+	for (int i = 0; i < NUMPRIO; i++) {
+		ptr = runq[i];
+		while(ptr != NULL && ptr->thread->id != th) {
 			ptr = ptr->next;
 		}
-		ptr = (bt*)malloc(sizeof(bt));
-		ptr->id = violated_thread->thread->id;
-	} else {
-		blocking_thread->thread->threads_blocked = (bt*)malloc(sizeof(bt));
-		blocking_thread->thread->threads_blocked->id = violated_thread->thread->id;
 	}
+	// rq *ptr = thread_list;
+	// printf("%u\n", ptr->thread->id);
+	// // printf("%u\n", thread_list_last->thread->id);
+	// while(ptr != NULL && ptr->thread->id != th) {
+	// 	printf("in the loop: %u\n", ptr->thread->id);
+	// 	ptr = ptr->next;
+		
+	// }
+
+	printf("hi%u\n", ptr->thread->id);
+	
+	found_thread = ptr;
+}
+
+void block_thread(rq* blocking_thread, rq* violated_thread) {
+	blocking_thread->thread->threads_blocked[blocking_thread->thread->num_threads_blocked] = violated_thread->thread->id;
+	
+	// if (blocking_thread->thread->threads_blocked != NULL) {
+	// 	bt *ptr = blocking_thread->thread->threads_blocked;
+	// 	while(ptr->next) {
+	// 		ptr = ptr->next;
+	// 	}
+	// 	ptr = (bt*)malloc(sizeof(bt));
+	// 	ptr->id = violated_thread->thread->id;
+	// } else {
+	// 	printf("got to step 1\n");
+	// 	blocking_thread->thread->threads_blocked = 
+	// 	printf("got to step 2\n");
+	// 	blocking_thread->thread->threads_blocked->id = violated_thread->thread->id;
+	// 	printf("done!\n");
+	// }
 }
 
 void mlfq_unlock() {
@@ -175,36 +209,34 @@ void worker_exit(void *value_ptr) {
 	setitimer(ITIMER_PROF, NULL, NULL);
 	printf("ode\n");
 	current_thread->thread->status = EXITED;
-	while(current_thread->thread->threads_blocked) {
-		bt *ptr = current_thread->thread->threads_blocked;
-		current_thread->thread->threads_blocked = current_thread->thread->threads_blocked->next;
-		rq *unblocked_thread = find_thread(ptr->id);
-		unblocked_thread->thread->num_threads_blocking--;
-		if (unblocked_thread->thread->num_threads_blocking == 0) {
-			unblocked_thread->thread->status = READY;
+	while(current_thread->thread->num_threads_blocked > 0) {
+		find_thread(current_thread->thread->threads_blocked[current_thread->thread->num_threads_blocked-1]);
+		found_thread->thread->num_threads_blocking--;
+		if (found_thread->thread->num_threads_blocking == 0) {
+			found_thread->thread->status = READY;
 		}
-		free(ptr);
+		current_thread->thread->num_threads_blocked--;
 	}
-	printf("ode again\n");
-	uint tid = current_thread->thread->id;
-	printf("ode again\n");
-	// Acquiring and rewiring the thread_list linked list to exclude the current thread being exited
-	rq *ptr = thread_list, *ptr2 = NULL;
-	if(ptr->thread->id == tid) {
-		thread_list = thread_list->next;
-		ptr->next = NULL;
-	} else {
-		while (ptr->next) {
-			if(ptr->next->thread->id == tid) {
-				ptr2 = ptr->next;
-				ptr->next = ptr->next->next;
-				ptr2->next = NULL;
-				ptr = ptr2;
-			} else {
-				ptr = ptr->next;
-			}
-		}
-	}
+	// printf("ode again\n");
+	// uint tid = current_thread->thread->id;
+	// printf("ode again\n");
+	// // Acquiring and rewiring the thread_list linked list to exclude the current thread being exited
+	// rq *ptr = thread_list, *ptr2 = NULL;
+	// if(ptr->thread->id == tid) {
+	// 	thread_list = thread_list->next;
+	// 	ptr->next = NULL;
+	// } else {
+	// 	while (ptr->next) {
+	// 		if(ptr->next->thread->id == tid) {
+	// 			ptr2 = ptr->next;
+	// 			ptr->next = ptr->next->next;
+	// 			ptr2->next = NULL;
+	// 			ptr = ptr2;
+	// 		} else {
+	// 			ptr = ptr->next;
+	// 		}
+	// 	}
+	// }
 
 	// deallocation for PSJF?
 
@@ -250,11 +282,11 @@ int worker_join(worker_t thread, void **value_ptr) {
 	// 	ptr->thread->blocked_ids = (worker_mutex_t*)malloc(sizeof(worker_t));
 	// }
 	printf("fei\n");
-	rq* blocking_thread = find_thread(thread);
+	printf("%u\n",thread);
+	find_thread(thread);
 	printf("fein\n");
-	block_thread(blocking_thread, current_thread);
-	current_thread->thread->status = BLOCKED;
-	current_thread->thread->num_threads_blocking++;
+	block_thread(found_thread, current_thread); // set status of current_threaqd to blocked
+
 	printf("Before worker yield: %u %u\n", current_thread->thread->id, current_thread->thread->status);
 	worker_yield();
 	
@@ -370,7 +402,11 @@ static void roundy(){
 	//assuming at least one thread is not BLOCKED
 	printf("%u %u\n", current_thread->thread->id, current_thread->thread->status);
 	while(ptr->thread->status == BLOCKED || ptr->thread->status == EXITED) {
-		printf("meek mook\n");
+		printf("%u  %u  %u\n", ptr->thread->id, ptr->thread->status, ptr->thread->num_threads_blocking);
+		if (ptr->thread->status == BLOCKED ) {
+			ptr->thread->status = READY;
+		}
+		//printf("%u\n", ptr->thread->num_threads_blocking);
 		rq* prev = ptr;
 		ptr = dequeue(HIGH_PRIO);
 		prev->next = NULL;
@@ -436,6 +472,8 @@ void print_app_stats(void) {
 /* create a new thread */
 int worker_create(worker_t * thread, pthread_attr_t * attr, void *(*function)(void*), void * arg) {
 
+
+
 	//To be safe, stopping the timer
 	setitimer(ITIMER_PROF, NULL, NULL);
 	
@@ -454,6 +492,7 @@ int worker_create(worker_t * thread, pthread_attr_t * attr, void *(*function)(vo
 		benchmark_thread->priority = HIGH_PRIO;
 		benchmark_thread->id = next_thread_id++;
 
+		benchmark_thread->num_threads_blocked = 0;
 		benchmark_thread->num_threads_blocking = 0;
 
 		one_dim_enqueue(benchmark_thread);
@@ -526,6 +565,8 @@ int worker_create(worker_t * thread, pthread_attr_t * attr, void *(*function)(vo
 	new_thread->id = *thread;
 
 	new_thread->context = (ucontext_t*)malloc(sizeof(ucontext_t));
+	new_thread->num_threads_blocked = 0;
+	new_thread->num_threads_blocking = 0;
 
 	new_thread->priority = HIGH_PRIO;
 
@@ -542,6 +583,7 @@ int worker_create(worker_t * thread, pthread_attr_t * attr, void *(*function)(vo
 	
 	// - make it ready for the execution.
 	new_thread->status = READY;
+	
 
 	// YOUR CODE HERE
 	new_thread->context->uc_link = thread_ender; //current_thread->thread->context;

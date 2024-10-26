@@ -38,10 +38,10 @@ typedef struct worker_mutex_t {
 	uint *lock;
 } worker_mutex_t;
 
-typedef struct blocked_threads {
-	worker_t id;
-	struct blocked_threads *next;
-} bt;
+// typedef struct blocked_threads {
+// 	worker_t id;
+// 	struct blocked_threads *next;
+// } bt;
 
 typedef struct TCB {
 	/* add important states in a thread control block */
@@ -60,9 +60,10 @@ typedef struct TCB {
 	// And more ...
 	worker_mutex_t *mutex_lock;
 
-	bt *threads_blocked;
+	worker_t threads_blocked[1000]; // all of the other threads this thread is blocking
+	uint num_threads_blocked; // the # of threads this thread blocks
 
-	int num_threads_blocking;
+	uint num_threads_blocking; // The # of threads that are blocking this thread
 	
 	/*
 	
