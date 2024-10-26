@@ -21,15 +21,19 @@
 pthread_t a, b;
 
 void function1(){
-    printf("hi\n");
+    
     for(int i = 0; i < 300000; i++){
+        // if(i % 1000 == 0){
+        //     printf("%d\n", i);
+        // }
         printf("%d\n", i);
     }
+
 }
 
 void function2(){
     for(int i = 0; i < 1000; i++){
-        printf("hello world\n");
+        printf("%d. hello world\n", i);
     }
 }
 
@@ -37,21 +41,10 @@ int main(int argc, char **argv) {
 
     pthread_create(&a, NULL, &function1, NULL);
     //pthread_create(&b, NULL, &function2, NULL);
-    //pthread_create(&b, NULL, &function2, NULL);
-
-    printf("Sib n rag\n");
 
     pthread_join(a, NULL);
-
-    printf("One thread handled\n");
-
-    
-
-    printf("plz");
-    
     //pthread_join(b, NULL);
-
-    printf("Done. YEAAAA\n");
+    printf("DONE.\n");
 
     return 0;
 }
