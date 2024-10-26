@@ -425,7 +425,7 @@ int worker_create(worker_t * thread, pthread_attr_t * attr, void *(*function)(vo
 
 		mlfq_timer.it_value.tv_usec = 5 * QUANTUM;
 		mlfq_timer.it_value.tv_sec = 0;
-		mlfq_timer.it_interval.tv_usec = QUANTUM;
+		mlfq_timer.it_interval.tv_usec = 5 * QUANTUM;
 		mlfq_timer.it_interval.tv_sec = 0;
 
 		first_call--; // decrement so that we know the next time we run worker_create we don't re-initialize our global variables
